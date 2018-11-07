@@ -1,2 +1,4 @@
 # Repositoryprogram
-Program for creating a Repository for University, which can do CRUD operations.
+Program for creating a Repository for University, which reads files for 4 files students,instructors,grades and majors.
+
+
