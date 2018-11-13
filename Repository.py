@@ -11,6 +11,7 @@ import os
 from collections import defaultdict
 from prettytable import PrettyTable
 import unittest
+import sqlite3
 
 
 def file_reader(path, num_fields, expect, sep='\t'):
@@ -29,7 +30,7 @@ def file_reader(path, num_fields, expect, sep='\t'):
                     fields = fields.split(sep)
                     if len(fields) != num_fields:
                         raise ValueError("Number of fields in the file is \
-not equal to expected number of fileds")
+                        not equal to expected number of fileds")
                     else:
                         yield fields
 
@@ -37,7 +38,7 @@ not equal to expected number of fileds")
 class Repository:
     """Store all information about students and instructors """
 
-    def __init__(self, wdir, ptables=True):
+    def __init__(self, wdir, ddir, ptables=True):
         # directory with the students, instructors, and grades files
         self._wdir = wdir
         # key: cwid value: instance of class Student
@@ -46,6 +47,8 @@ class Repository:
         self._instructors = dict()
 
         self._majors = dict()
+
+        db = sqlite3.connect(ddir)
 
         self._get_instructors(os.path.join(wdir, 'instructors.txt'))
         self._get_majors(os.path.join(wdir, 'majors.txt'))
@@ -61,7 +64,7 @@ class Repository:
             self.student_table()
 
             print("\nInstructors summary")
-            self.instructor_table()
+            self.instructor_table(db)
 
     def _get_students(self, path):
         """ read students from path and add the to self.students """
@@ -70,7 +73,8 @@ class Repository:
                 if cwid in self._students:
                     print(f"Already exits {cwid}")
                 else:
-                    self._students[cwid] = Student(cwid, name, major, self._majors[major])
+                    self._students[cwid] = Student(
+                        cwid, name, major, self._majors[major])
         except ValueError as err:
             print(err)
 
@@ -130,14 +134,18 @@ class Repository:
 
         print(pt)
 
-    def instructor_table(self):
+    def instructor_table(self, db):
         """ print a PrettyTable with a summary of all students """
         pt = PrettyTable(
             field_names=['CWID', 'Name', 'Dept', 'Course', 'Students'])
-        for Instructor in self._instructors.values():
+        """for Instructor in self._instructors.values():
             for row in Instructor.pt_row():
-                pt.add_row(row)
-
+                pt.add_row(row)"""
+        query = """ select i.CWID, i.Name, i.Dept, g.Course, count(g.Course) as students
+                    from instructors i join grades g on i.CWID = g.Instructor_CWID
+                    group by Grade; """
+        for row in db.execute(query):
+            pt.add_row(row)
         print(pt)
 
 
@@ -221,14 +229,18 @@ class Major:
 
 
 def main():
-    wdir = 'E:\Py Project\SSW-810\sit'
-    stevens = Repository(wdir)
+    # wdir = 'E:\Py Project\SSW-810\sit'
+    wdir = input('Enter the text file or csv file directory: ')
+    # ddir = 'E:\sqlite\repository.db'
+    ddir = input('Enter the database directory: ')
+    stevens = Repository(wdir, ddir)
 
 
 class RepositoryTest(unittest.TestCase):
     def test_stevens(self):
         wdir = 'E:\Py Project\SSW-810\sit'
-        stevens = Repository(wdir, False)
+        ddir = 'E:\sqlite\\repository.db'
+        stevens = Repository(wdir, ddir, False)
         expect_student = [["10103", "Baldwin, C", "SFEN", ['CS 501', 'SSW 564', 'SSW 567', 'SSW 687'], {'SSW 555', 'SSW 540'}, None],
                         ["10115", "Wyatt, X", "SFEN", ['CS 545', 'SSW 564', 'SSW 567', 'SSW 687'], {'SSW 555', 'SSW 540'}, None],
                         ["10172", "Forbes, I", "SFEN", ['SSW 555', 'SSW 567'], {'SSW 564', 'SSW 540'}, {'CS 545', 'CS 501', 'CS 513'}],
